@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.providers.docker.operators.docker import DockerOperator
 from airflow.operators.empty import EmptyOperator
-from docker.types import Mount
+
 
 
 # load config
@@ -47,13 +47,7 @@ def make_dag(spider: dict) -> DAG:
                 "GOOGLE_APPLICATION_CREDENTIALS": "/tmp/sa.json",
                 "GCP_SA_KEY":     "{{ var.value.GCP_SA_KEY }}",
             },
-            mounts          = [
-                Mount(
-                    source = "{{ var.value.GCP_SA_KEY_PATH }}",
-                    target = "/tmp/sa.json",
-                    type   = "bind",
-                )
-            ],
+           
         )
 
         end = EmptyOperator(task_id="end")
