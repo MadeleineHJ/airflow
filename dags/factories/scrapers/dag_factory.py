@@ -44,7 +44,6 @@ def make_dag(spider: dict) -> DAG:
             environment     = {
                 "GCP_PROJECT_ID":                "{{ var.value.GCP_PROJECT_ID }}",
                 "BQ_DATASET":                    "{{ var.value.BQ_DATASET }}",
-                "GOOGLE_APPLICATION_CREDENTIALS": "/tmp/sa.json",
                 "GCP_SA_KEY":     "{{ var.value.GCP_SA_KEY }}",
             },
            
