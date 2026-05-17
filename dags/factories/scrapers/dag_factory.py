@@ -43,6 +43,7 @@ def make_dag(spider: dict) -> DAG:
             network_mode    = "bridge",
             mounts       = [],
             mount_tmp_dir = False,
+            force_pull    = True,
             environment     = {
                 "GCP_PROJECT_ID":                "{{ var.value.GCP_PROJECT_ID }}",
                 "BQ_DATASET":                    "{{ var.value.BQ_DATASET }}",
