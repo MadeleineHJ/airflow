@@ -41,6 +41,8 @@ def make_dag(spider: dict) -> DAG:
             auto_remove     = "success",
             docker_url      = "tcp://host.docker.internal:2375",
             network_mode    = "bridge",
+            mounts       = [],
+            mount_tmp_dir = False,
             environment     = {
                 "GCP_PROJECT_ID":                "{{ var.value.GCP_PROJECT_ID }}",
                 "BQ_DATASET":                    "{{ var.value.BQ_DATASET }}",
