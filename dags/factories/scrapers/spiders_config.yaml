@@ -1,0 +1,18 @@
+global_defaults: &global_defaults
+  image: ghcr.io/madeleinehj/scrapers:latest
+  schedule: null          # manual only
+  retries: 2
+  retry_delay_minutes: 5
+
+spiders:
+  - name: transfermarkt_squads
+    <<: *global_defaults
+    group: transfermarkt
+
+  - name: transfermarkt_market_values
+    <<: *global_defaults
+    group: transfermarkt
+
+  - name: transfermarkt_transfers
+    <<: *global_defaults
+    group: transfermarkt
