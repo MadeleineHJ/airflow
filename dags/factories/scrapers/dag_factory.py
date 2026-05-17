@@ -4,6 +4,8 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.providers.docker.operators.docker import DockerOperator
 from airflow.operators.empty import EmptyOperator
+from docker.types import Mount
+
 
 
 
@@ -33,23 +35,29 @@ def make_dag(spider: dict) -> DAG:
     ) as dag:
 
         start = EmptyOperator(task_id="start")
+        
 
         run_spider = DockerOperator(
-            task_id         = f"run_{spider['name']}",
-            image           = spider["image"],
-            command         = f"scrapy crawl {spider['name']}",
-            auto_remove     = "success",
-            docker_url      = "tcp://host.docker.internal:2375",
-            network_mode    = "bridge",
-            mounts       = [],
+            task_id       = f"run_{spider['name']}",
+            image         = spider["image"],
+            command       = f"scrapy crawl {spider['name']}",
+            auto_remove   = "success",
+            docker_url    = "tcp://host.docker.internal:2375",
+            network_mode  = "bridge",
             mount_tmp_dir = False,
             force_pull    = True,
-            environment     = {
-                "GCP_PROJECT_ID":                "{{ var.value.GCP_PROJECT_ID }}",
-                "BQ_DATASET":                    "{{ var.value.BQ_DATASET }}",
-                "GCP_SA_KEY":     "{{ var.value.GCP_SA_KEY }}",
+            mounts        = [
+                Mount(
+                    source = "C:/Users/Madeleine Hammad/my personal  big query service account/my-project-153-370418-5e6887f9ee58.json",
+                    target = "/tmp/sa.json",
+                    type   = "bind",
+                )
+            ],
+            environment   = {
+                "GCP_PROJECT_ID":                 "{{ var.value.GCP_PROJECT_ID }}",
+                "BQ_DATASET":                     "{{ var.value.BQ_DATASET }}",
+                "GOOGLE_APPLICATION_CREDENTIALS": "/tmp/sa.json",
             },
-           
         )
 
         end = EmptyOperator(task_id="end")
