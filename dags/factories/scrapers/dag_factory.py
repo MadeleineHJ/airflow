@@ -39,7 +39,7 @@ def make_dag(spider: dict) -> DAG:
             image           = spider["image"],
             command         = f"scrapy crawl {spider['name']}",
             auto_remove     = "success",
-            docker_url      = "unix://var/run/docker.sock",
+            docker_url      = "tcp://host.docker.internal:2375",
             network_mode    = "bridge",
             environment     = {
                 "GCP_PROJECT_ID":                "{{ var.value.GCP_PROJECT_ID }}",
