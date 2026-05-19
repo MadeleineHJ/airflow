@@ -17,7 +17,7 @@ spiders:
     <<: *global_defaults
     group: transfermarkt
 
-    - name: football_standings
+  - name: football_standings
     <<: *global_defaults
     group: football
 
