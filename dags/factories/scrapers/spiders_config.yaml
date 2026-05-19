@@ -16,3 +16,15 @@ spiders:
   - name: transfermarkt_transfers
     <<: *global_defaults
     group: transfermarkt
+
+    - name: football_standings
+    <<: *global_defaults
+    group: football
+
+  - name: football_matches
+    <<: *global_defaults
+    group: football
+
+  - name: football_top_scorers
+    <<: *global_defaults
+    group: football
