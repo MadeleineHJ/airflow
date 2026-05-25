@@ -1,14 +1,9 @@
-version: "3"
 services:
   scheduler:
     volumes:
       - "C:/Users/Madeleine Hammad/madeleine-portfolio/data_transformation:/usr/local/airflow/dbt/football"
       - "C:/Users/Madeleine Hammad/my personal  big query service account/my-project-153-370418-5e6887f9ee58.json:/usr/local/airflow/dbt/sa.json"
   dag-processor:
-    volumes:
-      - "C:/Users/Madeleine Hammad/madeleine-portfolio/data_transformation:/usr/local/airflow/dbt/football"
-      - "C:/Users/Madeleine Hammad/my personal  big query service account/my-project-153-370418-5e6887f9ee58.json:/usr/local/airflow/dbt/sa.json"
-  worker:
     volumes:
       - "C:/Users/Madeleine Hammad/madeleine-portfolio/data_transformation:/usr/local/airflow/dbt/football"
       - "C:/Users/Madeleine Hammad/my personal  big query service account/my-project-153-370418-5e6887f9ee58.json:/usr/local/airflow/dbt/sa.json"

@@ -7,6 +7,7 @@ from airflow.operators.empty import EmptyOperator
 from docker.types import Mount
 from cosmos import DbtTaskGroup, ProjectConfig, ProfileConfig, ExecutionConfig
 from cosmos.profiles import GoogleCloudServiceAccountFileProfileMapping
+from cosmos import DbtTaskGroup, ProjectConfig, ProfileConfig, ExecutionConfig, RenderConfig
 
 # ── Config ────────────────────────────────────────────────
 CONFIG_PATH = Path(__file__).parent / "spiders_config.yaml"
@@ -126,7 +127,9 @@ def make_dbt_dag(pipeline: dict) -> DAG:
             project_config   = project_config,
             profile_config   = profile_config,
             execution_config = execution_config,
-            select           = dbt_selects,
+            render_config    = RenderConfig(
+                select = dbt_selects,
+            ),
         )
 
         start >> dbt_tasks >> end
