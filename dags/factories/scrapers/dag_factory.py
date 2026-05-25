@@ -2,22 +2,23 @@ import yaml
 from pathlib import Path
 from datetime import datetime, timedelta
 from airflow import DAG
-from airflow.operators.bash import BashOperator
 from airflow.providers.docker.operators.docker import DockerOperator
 from airflow.operators.empty import EmptyOperator
 from docker.types import Mount
+from cosmos import DbtTaskGroup, ProjectConfig, ProfileConfig, ExecutionConfig
+from cosmos.profiles import GoogleCloudServiceAccountFileProfileMapping
 
 # ── Config ────────────────────────────────────────────────
 CONFIG_PATH = Path(__file__).parent / "spiders_config.yaml"
 with open(CONFIG_PATH) as f:
     config = yaml.safe_load(f)
 
-DBT_PROJECT_PATH = "C:/Users/Madeleine Hammad/madeleine-portfolio/data_transformation"
-DBT_EXECUTABLE   = "C:/Users/Madeleine Hammad/AppData/Local/Programs/Python/Python313/Scripts/dbt.exe"
-DBT_PROFILE      = "dbt_project"
-DBT_TARGET       = "dev"
-
 SA_KEY_PATH      = "C:/Users/Madeleine Hammad/my personal  big query service account/my-project-153-370418-5e6887f9ee58.json"
+
+# paths inside the Airflow container (mounted via docker-compose.override.yml)
+DBT_PROJECT_PATH = Path("/usr/local/airflow/dbt/football")
+DBT_SA_PATH      = "/usr/local/airflow/dbt/sa.json"
+
 
 # ── Spider DAG factory ────────────────────────────────────
 def make_spider_dag(spider_name: str, pipeline_config: dict) -> DAG:
@@ -72,12 +73,34 @@ def make_spider_dag(spider_name: str, pipeline_config: dict) -> DAG:
     return dag
 
 
-# ── dbt DAG factory ───────────────────────────────────────
+# ── dbt DAG factory using Cosmos ─────────────────────────
 def make_dbt_dag(pipeline: dict) -> DAG:
-    """Generate one dbt DAG per pipeline that has dbt_selects."""
+    """Generate one dbt DAG per pipeline using Cosmos."""
 
     pipeline_name = pipeline["name"]
     dbt_selects   = pipeline.get("dbt_selects", [])
+
+    profile_config = ProfileConfig(
+        profile_name    = "dbt_project",
+        target_name     = "dev",
+        profile_mapping = GoogleCloudServiceAccountFileProfileMapping(
+            conn_id      = "google_cloud_default",
+            profile_args = {
+                "project":  "my-project-153-370418",
+                "dataset":  "dev_madeleine",
+                "location": "US",
+                "keyfile":  DBT_SA_PATH,
+            },
+        ),
+    )
+
+    project_config = ProjectConfig(
+        dbt_project_path = DBT_PROJECT_PATH,
+    )
+
+    execution_config = ExecutionConfig(
+        dbt_executable_path = "/usr/local/airflow/.venv/bin/dbt",
+    )
 
     default_args = {
         "owner":       "madeleine",
@@ -87,51 +110,26 @@ def make_dbt_dag(pipeline: dict) -> DAG:
 
     with DAG(
         dag_id       = f"dbt__{pipeline_name}_pipeline",
-        description  = f"Runs dbt models for {pipeline_name}",
+        description  = f"Runs dbt models for {pipeline_name} using Cosmos",
         schedule     = pipeline.get("dbt_schedule", "0 6 * * *"),
         start_date   = datetime(2026, 1, 1),
         catchup      = False,
         default_args = default_args,
-        tags         = ["dbt", pipeline_name],
+        tags         = ["dbt", "cosmos", pipeline_name],
     ) as dag:
 
         start = EmptyOperator(task_id="start")
         end   = EmptyOperator(task_id="end")
 
-        previous_task = start
+        dbt_tasks = DbtTaskGroup(
+            group_id         = f"dbt_{pipeline_name}",
+            project_config   = project_config,
+            profile_config   = profile_config,
+            execution_config = execution_config,
+            select           = dbt_selects,
+        )
 
-        for select in dbt_selects:
-            # sanitise select for use as task_id
-            task_name = select.replace(".", "__").replace("/", "_")
-
-            dbt_run = BashOperator(
-                task_id      = f"dbt_run__{task_name}",
-                bash_command = (
-                    f"{DBT_EXECUTABLE} run "
-                    f"--project-dir {DBT_PROJECT_PATH} "
-                    f"--profiles-dir {DBT_PROJECT_PATH} "
-                    f"--profile {DBT_PROFILE} "
-                    f"--target {DBT_TARGET} "
-                    f"--select {select}"
-                ),
-            )
-
-            dbt_test = BashOperator(
-                task_id      = f"dbt_test__{task_name}",
-                bash_command = (
-                    f"{DBT_EXECUTABLE} test "
-                    f"--project-dir {DBT_PROJECT_PATH} "
-                    f"--profiles-dir {DBT_PROJECT_PATH} "
-                    f"--profile {DBT_PROFILE} "
-                    f"--target {DBT_TARGET} "
-                    f"--select {select}"
-                ),
-            )
-
-            previous_task >> dbt_run >> dbt_test
-            previous_task = dbt_test
-
-        previous_task >> end
+        start >> dbt_tasks >> end
 
     return dag
 

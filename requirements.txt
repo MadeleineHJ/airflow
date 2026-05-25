@@ -2,3 +2,7 @@
 scrapy
 apache-airflow-providers-google
 apache-airflow-providers-docker
+apache-airflow-providers-docker
+astronomer-cosmos[dbt-bigquery]
+dbt-core==1.10.17
+dbt-bigquery==1.10.0
