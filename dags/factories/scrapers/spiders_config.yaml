@@ -4,27 +4,22 @@ global_defaults: &global_defaults
   retries: 2
   retry_delay_minutes: 5
 
-spiders:
-  - name: transfermarkt_squads
+pipelines:
+  - name: football
     <<: *global_defaults
-    group: transfermarkt
+    dbt_schedule: "0 6 * * *"
+    dbt_selects:
+      - bronze_layer.bronze_football
+      - silver_layer.silver_football
+    spiders:
+      - football_standings
+      - football_matches
+      - football_top_scorers
 
-  - name: transfermarkt_market_values
+  - name: transfermarkt
     <<: *global_defaults
-    group: transfermarkt
-
-  - name: transfermarkt_transfers
-    <<: *global_defaults
-    group: transfermarkt
-
-  - name: football_standings
-    <<: *global_defaults
-    group: football
-
-  - name: football_matches
-    <<: *global_defaults
-    group: football
-
-  - name: football_top_scorers
-    <<: *global_defaults
-    group: football
+    dbt_selects: []
+    spiders:
+      - transfermarkt_squads
+      - transfermarkt_market_values
+      - transfermarkt_transfers
