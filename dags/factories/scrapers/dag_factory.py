@@ -8,6 +8,7 @@ from docker.types import Mount
 from cosmos import DbtTaskGroup, ProjectConfig, ProfileConfig, ExecutionConfig
 from cosmos.profiles import GoogleCloudServiceAccountFileProfileMapping
 from cosmos import DbtTaskGroup, ProjectConfig, ProfileConfig, ExecutionConfig, RenderConfig
+from airflow.sensors.external_task import ExternalTaskSensor
 
 # ── Config ────────────────────────────────────────────────
 CONFIG_PATH = Path(__file__).parent / "spiders_config.yaml"
@@ -34,7 +35,7 @@ def make_spider_dag(spider_name: str, pipeline_config: dict) -> DAG:
     with DAG(
         dag_id       = f"spider__{spider_name}",
         description  = f"Runs the {spider_name} Scrapy spider",
-        schedule     = None,
+        schedule     = pipeline_config.get("schedule", None),
         start_date   = datetime(2026, 1, 1),
         catchup      = False,
         default_args = default_args,
@@ -76,10 +77,13 @@ def make_spider_dag(spider_name: str, pipeline_config: dict) -> DAG:
 
 # ── dbt DAG factory using Cosmos ─────────────────────────
 def make_dbt_dag(pipeline: dict) -> DAG:
-    """Generate one dbt DAG per pipeline using Cosmos."""
+    """Generate one dbt DAG per pipeline using Cosmos.
+    Waits for all spiders in the pipeline to complete before running dbt.
+    """
 
     pipeline_name = pipeline["name"]
     dbt_selects   = pipeline.get("dbt_selects", [])
+    spiders       = pipeline.get("spiders", [])
 
     profile_config = ProfileConfig(
         profile_name    = "dbt_project",
@@ -110,17 +114,33 @@ def make_dbt_dag(pipeline: dict) -> DAG:
     }
 
     with DAG(
-        dag_id       = f"dbt__{pipeline_name}_pipeline",
-        description  = f"Runs dbt models for {pipeline_name} using Cosmos",
-        schedule     = pipeline.get("dbt_schedule", "0 6 * * *"),
-        start_date   = datetime(2026, 1, 1),
-        catchup      = False,
-        default_args = default_args,
-        tags         = ["dbt", "cosmos", pipeline_name],
+        dag_id            = f"dbt__{pipeline_name}_pipeline",
+        description       = f"Waits for {pipeline_name} spiders then runs dbt",
+        schedule          = pipeline.get("dbt_schedule", "0 6 * * *"),
+        start_date        = datetime(2026, 1, 1),
+        catchup           = False,
+        default_args      = default_args,
+        tags              = ["dbt", "cosmos", pipeline_name],
     ) as dag:
 
         start = EmptyOperator(task_id="start")
         end   = EmptyOperator(task_id="end")
+
+        # create one sensor per spider
+        sensors = [
+            ExternalTaskSensor(
+                task_id             = f"wait_for_{spider_name}",
+                external_dag_id     = f"spider__{spider_name}",
+                external_task_id    = f"run_{spider_name}",
+                allowed_states      = ["success"],
+                failed_states       = ["failed", "skipped"],
+                execution_delta     = timedelta(minutes=0),
+                poke_interval       = 60,    # check every 60 seconds
+                timeout             = 3600,  # give up after 1 hour
+                mode                = "reschedule",
+            )
+            for spider_name in spiders
+        ]
 
         dbt_tasks = DbtTaskGroup(
             group_id         = f"dbt_{pipeline_name}",
@@ -132,9 +152,11 @@ def make_dbt_dag(pipeline: dict) -> DAG:
             ),
         )
 
-        start >> dbt_tasks >> end
+        # all sensors must pass before dbt runs
+        start >> sensors >> dbt_tasks >> end
 
     return dag
+
 
 
 # ── Register all DAGs ─────────────────────────────────────
